@@ -50,14 +50,8 @@ export const columns: ColumnDef<OrderColumn>[] = [
     accessorKey: "isPaid",
     header: "Paid",
     cell: ({ cell }) => {
-      return (
-        <CellAction
-          data={cell.row.original}
-          onTogglePaid={(id, isPaid) => {
-            cell.row.original.isPaid = isPaid;
-          }}
-        />
-      );
+      return <CellAction data={cell.row.original} />;
+
     },
   }
 ]
