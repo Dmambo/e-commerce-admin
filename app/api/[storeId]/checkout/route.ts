@@ -1,90 +1,87 @@
-import Stripe from "stripe";
 import { NextResponse } from "next/server";
-
-import { stripe } from "@/lib/stripe";
-
-import { prismadb } from '@/lib/prismadb';
-
+import { prismadb } from "@/lib/prismadb";
 
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization"
-}
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+};
 
 export async function OPTIONS() {
-    return NextResponse.json({}, {headers: corsHeaders})
+  return NextResponse.json({}, { headers: corsHeaders });
 }
 
 export async function POST(
-    req: Request,
-    { params } : { params: { storeId: string }}
-    ) {
-        const { productIds, quantities } = await req.json();
+  req: Request,
+  { params }: { params: { storeId: string } }
+) {
+  try {
+    const requestBody = await req.text();
+    console.log("Received Request Body:", requestBody);
 
-        if(!productIds || productIds.lenght === 0|| !quantities || quantities.length === 0) {
-            return new NextResponse("Missing productIds", { status: 400 })
-        }
-
-        const products = await prismadb.product.findMany ({
-            where: {
-                id: {
-                    in: productIds
-                }
-            }
-        })
-
-        const line_items: Stripe.Checkout.SessionCreateParams.LineItem[] = []
-
-        products.forEach((product, index) => {
-            const quantity = quantities[index] || 1;
-            line_items.push({
-                price_data: {
-                    currency: "NGN",
-                    product_data: {
-                        name: product.name
-                    },
-                    unit_amount: product.price.toNumber() * 100
-                },
-                quantity: quantity
-            })
-        })
-
-        const order = await prismadb.order.create({
-            data: {
-                storeId: params.storeId,
-                isPaid: false,
-                orderItems: {
-                    create: productIds.map((productId: string, index: number) => ({
-                        product: {
-                            connect: {
-                                id: productId
-                            }
-                        },
-                        quantity: quantities[index] || 1
-                    })),
-                    
-                }
-            }
-        })
-
-        const session = await stripe.checkout.sessions.create({
-            line_items,
-            mode:'payment',
-            billing_address_collection: 'required',
-            phone_number_collection: {
-                enabled: true
-            },
-            success_url:`${process.env.FRONTEND_STORE_URL}/cart?success=1`,
-            cancel_url:`${process.env.FRONTEND_STORE_URL}/cart?canceled=1`,
-            metadata: {
-                orderId: order.id
-            }
-
-            
-
-        })
-        return NextResponse.json({ url: session.url }, {
-            headers: corsHeaders
-        })
+    let requestData;
+    try {
+      requestData = JSON.parse(requestBody);
+      console.log("Parsed Request Data:", requestData);
+    } catch (error) {
+      console.error("Error parsing JSON data:", error);
+      return new NextResponse("Invalid JSON data", { status: 400 });
     }
+
+    const {
+      name,
+      address,
+      phone,
+      email,
+      transactionId,
+      products,
+      quantities,
+    } = requestData;
+
+    if (
+      !name ||
+      !address ||
+      !phone ||
+      !email ||
+      !transactionId ||
+      !products ||
+      !quantities ||
+      products.length !== quantities.length
+    ) {
+      return new NextResponse("Missing or invalid required fields", {
+        status: 400,
+      });
+    }
+
+    const orderItems = products.map((productId: string, index: number) => ({
+      product: {
+        connect: {
+          id: productId,
+        },
+      },
+      quantity: quantities[index] || 1,
+    }));
+
+    const order = await prismadb.order.create({
+      data: {
+        storeId: params.storeId,
+        isPaid: false,
+        transactionId,
+        name,
+        phone,
+        address,
+        email,
+        orderItems: {
+          create: orderItems,
+        },
+      },
+    });
+
+    // Perform any additional logic or payment processing here
+
+    return NextResponse.json({ orderId: order.id }, { headers: corsHeaders });
+  } catch (error) {
+    console.error("Error processing payment:", error);
+    return new NextResponse("Something went wrong.", { status: 500 });
+  }
+}

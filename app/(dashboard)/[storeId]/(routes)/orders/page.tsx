@@ -29,10 +29,13 @@ const OrdersPage = async ({ params }: { params: { storeId: string } }) => {
     return {
       id: item.id,
       phone: item.phone,
+      email: item.email,
+      name: item.name,
       address: item.address,
       products: item.orderItems.map((orderItem) => orderItem.product.name).join(', '),
       totalPrice: formatter.format(totalPrice),
       isPaid: item.isPaid,
+      transactionId: item.transactionId || "",
       createdAt: format(item.createdAt, "MMMM do, yyyy"),
     };
   });
