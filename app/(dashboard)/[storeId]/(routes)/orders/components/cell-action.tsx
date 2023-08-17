@@ -17,35 +17,58 @@ export const CellAction: React.FC<CellActionProps> = ({ data }) => {
 
   const params =  useParams()
 
-  const handleTogglePaid = () => {
-    if (updating) return; // Prevent multiple clicks while updating
+  const handleTogglePaid = async () => {
+    if (updating) return;
 
     const newIsPaid = !isPaid;
     setUpdating(true);
 
-    // Make the API call to update the database
-    fetch(`/api/${params.storeId}/orders/${id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ isPaid: newIsPaid }),
-    })
-      .then((response) => {
-        if (response.ok) {
-          setIsPaid(newIsPaid);
-          setUpdating(false);
-          toast.success(`Order status updated: ${newIsPaid ? "Paid" : "Unpaid"}`);
-        } else {
-          toast.error("Failed to update order status");
-          setUpdating(false);
-        }
-      })
-      .catch((error) => {
-        toast.error("Failed to update order status");
-        console.error("Error updating order status:", error);
-        setUpdating(false);
+    try {
+      const response = await fetch(`/api/${params.storeId}/orders/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isPaid: newIsPaid }),
       });
+
+      if (response.ok) {
+        setIsPaid(newIsPaid);
+        setUpdating(false);
+        toast.success(`Order status updated: ${newIsPaid ? "Paid" : "Unpaid"}`);
+
+        if (newIsPaid) {
+          try {
+            const emailResponse = await fetch("/api/sendEmail", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                to: data.email,
+                subject: "Order Paid",
+                text: "The order has been paid.",
+              }),
+            });
+            
+            
+
+            if (!emailResponse.ok) {
+              console.error("Error sending email:", emailResponse.statusText);
+            }
+          } catch (emailError) {
+            console.error("Error sending email:", emailError);
+          }
+        }
+      } else {
+        toast.error("Failed to update order status");
+        setUpdating(false);
+      }
+    } catch (error) {
+      toast.error("Failed to update order status");
+      console.error("Error updating order status:", error);
+      setUpdating(false);
+    }
   };
 
   // Determine the variant based on the isPaid state
