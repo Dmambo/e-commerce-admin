@@ -81,7 +81,6 @@ model Product {
   isArchived Boolean @default(false)
   sizeId     String
   size     Size    @relation(fields: [sizeId], references: [id])
-  colorId   String
   images    Image[]
   orderItems  OrderItem[]
   quantity    Int       @default(0)  // Add quantity field
