@@ -17,9 +17,9 @@ export async function GET(
         id: params.productId
       },
       include: {
+        size: true,
         images: true,
         category: true,
-        size: true,
       }
     });
   
