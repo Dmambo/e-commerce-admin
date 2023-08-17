@@ -20,6 +20,7 @@ export async function GET(
         size: true,
         images: true,
         category: true,
+        color: true,
       }
     });
   
